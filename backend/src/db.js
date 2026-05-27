@@ -95,7 +95,7 @@ const DEFAULT_SETTINGS = {
     'אופטימיזציה למנועי חיפוש (SEO)',
   ]),
   ai_api_key: '',
-  ai_model: 'claude-3-5-haiku-20241022',
+  ai_model: 'claude-haiku-4-5-20251001',
   default_timeline: JSON.stringify([
     { stage: 'אפיון ועיצוב', description: '1-2 שבועות' },
     { stage: 'פיתוח', description: '3-4 שבועות' },

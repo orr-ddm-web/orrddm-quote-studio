@@ -57,12 +57,12 @@ router.post('/generate-quote', async (req, res) => {
     return res.status(400).json({ error: 'נא לספק בריף' });
   }
 
-  const apiKey = getSetting('ai_api_key');
+  const apiKey = process.env.ANTHROPIC_API_KEY || getSetting('ai_api_key');
   if (!apiKey) {
     return res.status(400).json({ error: 'לא הוגדר API Key עבור Claude. אנא הגדר בדף ההגדרות.' });
   }
 
-  const model = getSetting('ai_model') || 'claude-3-5-haiku-20241022';
+  const model = getSetting('ai_model') || process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
   const settings = {};
   db.prepare('SELECT key, value FROM settings').all().forEach(r => { settings[r.key] = r.value; });
 
@@ -115,10 +115,10 @@ router.post('/chat', async (req, res) => {
   const { message, quote_context } = req.body;
   if (!message) return res.status(400).json({ error: 'חסרה הודעה' });
 
-  const apiKey = getSetting('ai_api_key');
+  const apiKey = process.env.ANTHROPIC_API_KEY || getSetting('ai_api_key');
   if (!apiKey) return res.status(400).json({ error: 'לא הוגדר API Key' });
 
-  const model = getSetting('ai_model') || 'claude-3-5-haiku-20241022';
+  const model = getSetting('ai_model') || process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 
   const contextStr = quote_context
     ? `\n\nהצעה נוכחית:\n${JSON.stringify(quote_context, null, 2)}`
