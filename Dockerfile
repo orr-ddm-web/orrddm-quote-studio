@@ -1,10 +1,13 @@
 FROM node:20-slim AS base
 
-# Install Chromium for Puppeteer PDF generation
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-noto \
     fonts-noto-color-emoji \
+    python3 \
+    make \
+    g++ \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -16,7 +19,7 @@ WORKDIR /app
 # ── Build frontend ─────────────────────────────────────────────────
 FROM base AS frontend-builder
 COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm ci --omit=dev
+RUN cd frontend && npm ci
 COPY frontend/ ./frontend/
 RUN cd frontend && npm run build
 
@@ -24,7 +27,7 @@ RUN cd frontend && npm run build
 FROM base AS final
 WORKDIR /app
 
-# Backend deps
+# Backend deps (needs build tools for better-sqlite3)
 COPY backend/package*.json ./backend/
 RUN cd backend && npm ci --omit=dev
 
