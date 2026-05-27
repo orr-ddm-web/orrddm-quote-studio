@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    direction: rtl;
+    font-family: 'Google Sans', Inter, system-ui, sans-serif;
+    background-color: #FDF8F5;
+    color: #1a1a1a;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  input, textarea, select {
+    font-family: inherit;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: #D4C4B8;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #B8A898; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg font-medium text-sm
+           hover:bg-brand-600 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700
+           rounded-lg font-medium text-sm hover:bg-gray-50 transition-colors duration-150;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-2 text-gray-500 rounded-lg text-sm
+           hover:bg-gray-100 hover:text-gray-700 transition-colors duration-150;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 text-red-600
+           rounded-lg font-medium text-sm hover:bg-red-100 transition-colors duration-150;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-dark
+           placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand
+           transition-colors;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-gray-600 mb-1;
+  }
+
+  .section-header {
+    @apply flex items-center justify-between py-3 border-b border-gray-100 mb-4;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+}

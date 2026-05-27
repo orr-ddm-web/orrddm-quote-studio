@@ -1,0 +1,47 @@
+FROM node:20-slim AS base
+
+# Install Chromium for Puppeteer PDF generation
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-noto \
+    fonts-noto-color-emoji \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+WORKDIR /app
+
+# ── Build frontend ─────────────────────────────────────────────────
+FROM base AS frontend-builder
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm ci --omit=dev
+COPY frontend/ ./frontend/
+RUN cd frontend && npm run build
+
+# ── Final image ────────────────────────────────────────────────────
+FROM base AS final
+WORKDIR /app
+
+# Backend deps
+COPY backend/package*.json ./backend/
+RUN cd backend && npm ci --omit=dev
+
+# Backend source
+COPY backend/ ./backend/
+
+# Copy built frontend
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+# Create data dir with correct permissions
+RUN mkdir -p /app/backend/data /app/backend/uploads && chmod 777 /app/backend/data /app/backend/uploads
+
+WORKDIR /app/backend
+
+EXPOSE 3001
+
+ENV NODE_ENV=production
+ENV PORT=3001
+
+CMD ["node", "src/index.js"]
