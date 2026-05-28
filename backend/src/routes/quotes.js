@@ -110,16 +110,17 @@ router.post('/', (req, res) => {
     signature_label: body.signature_label || 'חתימה ואישור',
     closing_text: body.closing_text || `בברכה,\n${settings.owner_name || 'אור פישביין'}\n${settings.business_name || 'OrrDDM'}`,
     custom_sections: JSON.stringify(body.custom_sections || []),
+    client_logo: body.client_logo || '',
     is_template: 0,
   };
 
   const result = db.prepare(`
     INSERT INTO quotes (number, token, client_name, project_title, date, status, summary_text, services,
       package_name, phases, pricing_options, discount_percent, third_party_costs, timeline, payment_terms, warranty,
-      sections, show_signature, signature_label, closing_text, custom_sections, is_template)
+      sections, show_signature, signature_label, closing_text, custom_sections, client_logo, is_template)
     VALUES (@number, @token, @client_name, @project_title, @date, @status, @summary_text, @services,
       @package_name, @phases, @pricing_options, @discount_percent, @third_party_costs, @timeline, @payment_terms, @warranty,
-      @sections, @show_signature, @signature_label, @closing_text, @custom_sections, @is_template)
+      @sections, @show_signature, @signature_label, @closing_text, @custom_sections, @client_logo, @is_template)
   `).run(quote);
 
   const created = db.prepare('SELECT * FROM quotes WHERE id = ?').get(result.lastInsertRowid);
@@ -135,7 +136,7 @@ router.put('/:id', (req, res) => {
   const body = req.body;
   const fields = [
     'client_name', 'project_title', 'date', 'status', 'summary_text',
-    'package_name', 'discount_percent', 'show_signature', 'signature_label', 'closing_text',
+    'package_name', 'discount_percent', 'show_signature', 'signature_label', 'closing_text', 'client_logo',
   ];
   const jsonFields = ['services', 'phases', 'pricing_options', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
   const updates = {};

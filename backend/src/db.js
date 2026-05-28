@@ -2,7 +2,8 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+// Use Railway persistent volume if available (/data), otherwise fallback to local data dir
+const DATA_DIR = process.env.DATA_DIR || '/data';
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new Database(path.join(DATA_DIR, 'quotes.db'));
@@ -59,8 +60,9 @@ db.exec(`
   );
 `);
 
-// Migrations — add new columns safely
+// Migrations — add new columns safely (non-destructive only)
 try { db.exec("ALTER TABLE quotes ADD COLUMN pricing_options TEXT DEFAULT '[]'"); } catch {}
+try { db.exec("ALTER TABLE quotes ADD COLUMN client_logo TEXT DEFAULT ''"); } catch {}
 
 // Default settings
 const DEFAULT_SETTINGS = {

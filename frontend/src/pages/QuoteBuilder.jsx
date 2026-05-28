@@ -72,6 +72,7 @@ function initQuote(settings) {
       terms: { visible: true, title: '04 | תנאים ולוח זמנים' },
     },
     custom_sections: [],
+    client_logo: '',
     show_signature: true,
     signature_label: 'חתימה ואישור',
     closing_text: `בברכה,\n${settings?.owner_name || 'אור פישביין'}\n${settings?.business_name || 'OrrDDM'}`,
@@ -611,6 +612,42 @@ export default function QuoteBuilder() {
             <div>
               <label className="label">שם חבילה / פאקג׳</label>
               <input className="input" value={state.package_name} onChange={e => set('package_name', e.target.value)} placeholder="חבילת פרמיום דיגיטל..." />
+            </div>
+          </div>
+
+          {/* Client Logo */}
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <label className="label mb-2">לוגו לקוח (אופציונלי)</label>
+            <div className="flex items-center gap-3">
+              {state.client_logo ? (
+                <>
+                  <img src={state.client_logo} alt="לוגו לקוח" className="h-12 object-contain rounded border border-gray-200 p-1 bg-white" />
+                  <button
+                    onClick={() => set('client_logo', '')}
+                    className="text-xs text-red-400 hover:text-red-600"
+                  >
+                    הסר לוגו
+                  </button>
+                </>
+              ) : (
+                <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 hover:border-brand hover:bg-brand/5 cursor-pointer transition-colors text-sm text-gray-500">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  העלה לוגו לקוח
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => set('client_logo', ev.target.result);
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              )}
+              <span className="text-xs text-gray-400">יוצג בהצעה ליד שם הלקוח</span>
             </div>
           </div>
         </div>

@@ -12,8 +12,9 @@ app.use(cors({ origin: [FRONTEND_URL, 'http://localhost:5173', 'http://localhost
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files (logos, etc.)
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+// Serve uploaded files (logos, etc.) — stored on persistent volume /data/uploads
+const DATA_DIR = process.env.DATA_DIR || '/data';
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 app.use('/uploads', express.static(UPLOADS_DIR));
 

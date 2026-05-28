@@ -256,14 +256,19 @@ export default function QuoteView() {
         </div>
 
         {/* Client info */}
-        <div className="border-r-4 pr-4 mb-8" style={{ borderColor: brandColor }}>
-          <h2 className="text-2xl font-bold text-[#1a1a1a] mb-1">{quote.client_name}</h2>
-          {quote.project_title && (
-            <p className="text-base font-medium" style={{ color: brandColor }}>{quote.project_title}</p>
+        <div className="border-r-4 pr-4 mb-8 flex items-center gap-4" style={{ borderColor: brandColor }}>
+          {quote.client_logo && (
+            <img src={quote.client_logo} alt={quote.client_name} className="h-14 object-contain flex-shrink-0" />
           )}
-          {quote.package_name && (
-            <p className="text-sm text-gray-500 mt-1">{quote.package_name}</p>
-          )}
+          <div>
+            <h2 className="text-2xl font-bold text-[#1a1a1a] mb-1">{quote.client_name}</h2>
+            {quote.project_title && (
+              <p className="text-base font-medium" style={{ color: brandColor }}>{quote.project_title}</p>
+            )}
+            {quote.package_name && (
+              <p className="text-sm text-gray-500 mt-1">{quote.package_name}</p>
+            )}
+          </div>
         </div>
 
         {/* Status badge */}

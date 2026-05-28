@@ -37,8 +37,9 @@ COPY backend/ ./backend/
 # Copy built frontend
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Create data dir with correct permissions
-RUN mkdir -p /app/backend/data /app/backend/uploads && chmod 777 /app/backend/data /app/backend/uploads
+# Create persistent data dir — Railway Volume will mount at /data
+# This ensures the directory exists with correct permissions before the volume is mounted
+RUN mkdir -p /data /data/uploads && chmod 777 /data /data/uploads
 
 WORKDIR /app/backend
 
