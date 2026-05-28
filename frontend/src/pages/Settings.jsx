@@ -90,6 +90,27 @@ function TimelineEditor({ items, onChange }) {
   );
 }
 
+function Toast({ message, onDone }) {
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => onDone && onDone(), 2800);
+    return () => clearTimeout(t);
+  }, [message, onDone]);
+  if (!message) return null;
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none">
+      <div className="px-7 py-4 rounded-2xl shadow-2xl font-semibold text-base flex items-center gap-3 text-white"
+        style={{ background: '#16a34a', boxShadow: '0 8px 32px rgba(0,0,0,0.22)', animation: 'toastIn 0.25s cubic-bezier(.4,0,.2,1)' }}>
+        <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+        </svg>
+        {message}
+      </div>
+      <style>{`@keyframes toastIn{from{opacity:0;transform:scale(.85) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
+    </div>
+  );
+}
+
 export default function Settings() {
   const { setSettings: setAppSettings } = useAppSettings();
   const [form, setForm] = useState(null);
@@ -130,7 +151,6 @@ export default function Settings() {
       setForm(parsed);
       setAppSettings(updated);
       setSuccess('הגדרות נשמרו בהצלחה');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (e) {
       console.error(e);
     } finally {
@@ -157,13 +177,13 @@ export default function Settings() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
+      <Toast message={success} onDone={() => setSuccess('')} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-dark">הגדרות</h1>
           <p className="text-sm text-gray-500 mt-0.5">ניהול פרופיל עסקי ותצורת המערכת</p>
         </div>
         <div className="flex items-center gap-2">
-          {success && <span className="text-xs text-green-600 font-medium">{success}</span>}
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? 'שומר...' : 'שמור הגדרות'}
           </button>

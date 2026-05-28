@@ -12,7 +12,7 @@ function getSettings() {
 
 function parseQuote(q) {
   if (!q) return null;
-  const jsonFields = ['services', 'phases', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
+  const jsonFields = ['services', 'phases', 'pricing_options', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
   jsonFields.forEach((f) => {
     if (q[f]) {
       try { q[f] = JSON.parse(q[f]); }
@@ -102,7 +102,7 @@ router.put('/:id', (req, res) => {
 
   const body = req.body;
   const fields = ['client_name', 'project_title', 'summary_text', 'package_name', 'discount_percent', 'show_signature', 'signature_label', 'closing_text', 'template_name', 'template_description'];
-  const jsonFields = ['services', 'phases', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
+  const jsonFields = ['services', 'phases', 'pricing_options', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
   const updates = {};
   fields.forEach((f) => { if (body[f] !== undefined) updates[f] = body[f]; });
   jsonFields.forEach((f) => { if (body[f] !== undefined) updates[f] = JSON.stringify(body[f]); });

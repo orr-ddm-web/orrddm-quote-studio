@@ -249,53 +249,119 @@ export default function QuoteView() {
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
               {sections.pricing?.title || '02 | מחירון ופירוט שירותים'}
             </h3>
-            {(quote.phases || []).length > 0 && (
-              <table className="w-full text-sm mb-5">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-right text-xs text-gray-500 font-medium pb-2">שלב / שירות</th>
-                    <th className="text-right text-xs text-gray-500 font-medium pb-2 w-36">מחיר</th>
-                    <th className="text-right text-xs text-gray-500 font-medium pb-2">תיאור</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quote.phases.map((p, i) => (
-                    <tr key={i} className="border-b border-gray-50">
-                      <td className="py-2.5 font-medium">{p.name}</td>
-                      <td className="py-2.5 font-medium" style={{ color: brandColor }}>{fmt(p.price, currSym)}</td>
-                      <td className="py-2.5 text-gray-500 text-xs">{p.description}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {/* Price summary */}
-            <div className="bg-gray-50 rounded-xl p-5 max-w-xs mr-auto">
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between text-gray-600">
-                  <span>לפני הנחה</span>
-                  <span>{fmt(prices.subtotal, currSym)}</span>
-                </div>
-                {quote.discount_percent && (
-                  <div className="flex justify-between text-gray-500">
-                    <span>הנחה ({quote.discount_percent}%)</span>
-                    <span className="text-red-500">−{fmt(prices.discount, currSym)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-gray-600">
-                  <span>לפני מע״מ</span>
-                  <span>{fmt(prices.afterDiscount, currSym)}</span>
-                </div>
-                <div className="flex justify-between text-gray-500">
-                  <span>מע״מ {vatPct}%</span>
-                  <span>{fmt(prices.vat, currSym)}</span>
-                </div>
-                <div className="flex justify-between text-base font-bold pt-2 border-t border-gray-200" style={{ color: brandColor }}>
-                  <span>סה״כ כולל מע״מ</span>
-                  <span>{fmt(prices.total, currSym)}</span>
-                </div>
+
+            {/* ── Multi-option pricing ── */}
+            {(quote.pricing_options || []).length > 0 ? (
+              <div className="space-y-5">
+                {quote.pricing_options.map((option, oi) => {
+                  const optPrices = calcPrices(option.phases || [], option.discount_percent, vatPct);
+                  return (
+                    <div key={oi} className="rounded-xl overflow-hidden border border-gray-200">
+                      {/* Option header */}
+                      <div className="px-4 py-2.5 text-sm font-bold" style={{ backgroundColor: brandColor + '18', color: brandColor }}>
+                        {option.name}
+                      </div>
+                      <div className="p-4">
+                        {(option.phases || []).length > 0 && (
+                          <table className="w-full text-sm mb-4">
+                            <thead>
+                              <tr className="border-b border-gray-200">
+                                <th className="text-right text-xs text-gray-500 font-medium pb-2">שלב / שירות</th>
+                                <th className="text-right text-xs text-gray-500 font-medium pb-2 w-36">מחיר</th>
+                                <th className="text-right text-xs text-gray-500 font-medium pb-2">תיאור</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {option.phases.map((p, pi) => (
+                                <tr key={pi} className="border-b border-gray-50">
+                                  <td className="py-2 font-medium">{p.name}</td>
+                                  <td className="py-2 font-medium" style={{ color: brandColor }}>{fmt(p.price, currSym)}</td>
+                                  <td className="py-2 text-gray-500 text-xs">{p.description}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                        {/* Option price summary */}
+                        <div className="bg-gray-50 rounded-xl p-4 max-w-xs mr-auto">
+                          <div className="space-y-1.5 text-sm">
+                            {option.discount_percent && (
+                              <div className="flex justify-between text-gray-500">
+                                <span>הנחה ({option.discount_percent}%)</span>
+                                <span className="text-red-500">−{fmt(optPrices.discount, currSym)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between text-gray-600">
+                              <span>לפני מע״מ</span>
+                              <span>{fmt(optPrices.afterDiscount, currSym)}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-500">
+                              <span>מע״מ {vatPct}%</span>
+                              <span>{fmt(optPrices.vat, currSym)}</span>
+                            </div>
+                            <div className="flex justify-between text-base font-bold pt-2 border-t border-gray-200" style={{ color: brandColor }}>
+                              <span>סה״כ כולל מע״מ</span>
+                              <span>{fmt(optPrices.total, currSym)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            ) : (
+              /* ── Single pricing ── */
+              <>
+                {(quote.phases || []).length > 0 && (
+                  <table className="w-full text-sm mb-5">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-right text-xs text-gray-500 font-medium pb-2">שלב / שירות</th>
+                        <th className="text-right text-xs text-gray-500 font-medium pb-2 w-36">מחיר</th>
+                        <th className="text-right text-xs text-gray-500 font-medium pb-2">תיאור</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quote.phases.map((p, i) => (
+                        <tr key={i} className="border-b border-gray-50">
+                          <td className="py-2.5 font-medium">{p.name}</td>
+                          <td className="py-2.5 font-medium" style={{ color: brandColor }}>{fmt(p.price, currSym)}</td>
+                          <td className="py-2.5 text-gray-500 text-xs">{p.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {/* Price summary */}
+                <div className="bg-gray-50 rounded-xl p-5 max-w-xs mr-auto">
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between text-gray-600">
+                      <span>לפני הנחה</span>
+                      <span>{fmt(prices.subtotal, currSym)}</span>
+                    </div>
+                    {quote.discount_percent && (
+                      <div className="flex justify-between text-gray-500">
+                        <span>הנחה ({quote.discount_percent}%)</span>
+                        <span className="text-red-500">−{fmt(prices.discount, currSym)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-gray-600">
+                      <span>לפני מע״מ</span>
+                      <span>{fmt(prices.afterDiscount, currSym)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500">
+                      <span>מע״מ {vatPct}%</span>
+                      <span>{fmt(prices.vat, currSym)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-bold pt-2 border-t border-gray-200" style={{ color: brandColor }}>
+                      <span>סה״כ כולל מע״מ</span>
+                      <span>{fmt(prices.total, currSym)}</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         )}
 

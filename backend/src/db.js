@@ -59,6 +59,9 @@ db.exec(`
   );
 `);
 
+// Migrations — add new columns safely
+try { db.exec("ALTER TABLE quotes ADD COLUMN pricing_options TEXT DEFAULT '[]'"); } catch {}
+
 // Default settings
 const DEFAULT_SETTINGS = {
   business_name: 'OrrDDM',

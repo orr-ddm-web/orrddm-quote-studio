@@ -1,11 +1,47 @@
-import React, { useEffect, useReducer, useState, useCallback } from 'react';
+import React, { useEffect, useReducer, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createQuote, updateQuote, getQuote, getNextNumber, createTemplate } from '../api';
+import { createQuote, updateQuote, getQuote, getNextNumber, createTemplate, getTemplate, updateTemplate } from '../api';
 import { useAppSettings } from '../App';
 import Modal from '../components/Modal';
 import AIAssistant from '../components/AIAssistant';
 
+// ── Toast Component ────────────────────────────────────────────────────────────
+function Toast({ message, type = 'success', onDone }) {
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => onDone && onDone(), 2800);
+    return () => clearTimeout(t);
+  }, [message, onDone]);
+  if (!message) return null;
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none">
+      <div
+        className="px-7 py-4 rounded-2xl shadow-2xl font-semibold text-base flex items-center gap-3 text-white"
+        style={{
+          background: type === 'success' ? '#16a34a' : '#dc2626',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
+          animation: 'toastIn 0.25s cubic-bezier(.4,0,.2,1)',
+        }}
+      >
+        {type === 'success' ? (
+          <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        )}
+        {message}
+      </div>
+      <style>{`@keyframes toastIn{from{opacity:0;transform:scale(.85) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
+    </div>
+  );
+}
+
 // ── Reducer ──────────────────────────────────────────────────────────────────
+
+const HEBREW_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח'];
 
 function initQuote(settings) {
   let defPayment = [], defWarranty = [], defServices = [], defTimeline = [];
@@ -23,6 +59,7 @@ function initQuote(settings) {
     services: defServices,
     package_name: '',
     phases: [],
+    pricing_options: [],
     discount_percent: null,
     third_party_costs: [],
     timeline: defTimeline,
@@ -63,6 +100,37 @@ function reducer(state, action) {
       const [el] = arr.splice(action.from, 1); arr.splice(action.to, 0, el);
       return { ...state, phases: arr };
     }
+    // ── Pricing Options ──
+    case 'OPTION_INIT': {
+      // Convert existing phases to Option A, add empty Option B
+      const opts = [
+        { id: Date.now(), name: `אופציה א׳`, phases: [...(state.phases || [])], discount_percent: state.discount_percent },
+        { id: Date.now() + 1, name: `אופציה ב׳`, phases: [], discount_percent: null },
+      ];
+      return { ...state, pricing_options: opts };
+    }
+    case 'OPTION_ADD': {
+      const nextLetter = HEBREW_LETTERS[state.pricing_options.length] || String(state.pricing_options.length + 1);
+      const newOpt = { id: Date.now(), name: `אופציה ${nextLetter}׳`, phases: [], discount_percent: null };
+      return { ...state, pricing_options: [...state.pricing_options, newOpt] };
+    }
+    case 'OPTION_DEL': {
+      if (state.pricing_options.length <= 1) return state; // keep at least one
+      return { ...state, pricing_options: state.pricing_options.filter((_, i) => i !== action.i) };
+    }
+    case 'OPTION_CLEAR':
+      return { ...state, pricing_options: [] };
+    case 'OPTION_RENAME':
+      return { ...state, pricing_options: state.pricing_options.map((o, i) => i === action.i ? { ...o, name: action.name } : o) };
+    case 'OPTION_DISCOUNT':
+      return { ...state, pricing_options: state.pricing_options.map((o, i) => i === action.i ? { ...o, discount_percent: action.v } : o) };
+    case 'OPTION_PHASE_ADD':
+      return { ...state, pricing_options: state.pricing_options.map((o, i) => i === action.oi ? { ...o, phases: [...o.phases, { name: '', price: '', description: '' }] } : o) };
+    case 'OPTION_PHASE_UPD':
+      return { ...state, pricing_options: state.pricing_options.map((o, i) => i === action.oi ? { ...o, phases: o.phases.map((p, pi) => pi === action.pi ? { ...p, [action.k]: action.v } : p) } : o) };
+    case 'OPTION_PHASE_DEL':
+      return { ...state, pricing_options: state.pricing_options.map((o, i) => i === action.oi ? { ...o, phases: o.phases.filter((_, pi) => pi !== action.pi) } : o) };
+    // ──
     case 'TPC_ADD': return { ...state, third_party_costs: [...state.third_party_costs, { service: '', cost: '' }] };
     case 'TPC_UPD': return { ...state, third_party_costs: state.third_party_costs.map((t, i) => i === action.i ? { ...t, [action.k]: action.v } : t) };
     case 'TPC_DEL': return { ...state, third_party_costs: state.third_party_costs.filter((_, i) => i !== action.i) };
@@ -188,29 +256,179 @@ function DynList({ items, onAdd, onUpdate, onDelete, onMove, placeholder = 'הו
   );
 }
 
+// ── Pricing Option Card ───────────────────────────────────────────────────────
+function OptionCard({ option, oi, currencySymbol, vatPct, dispatch, canDelete }) {
+  const prices = calcPrices(option.phases || [], option.discount_percent, vatPct);
+  const [showDiscount, setShowDiscount] = useState(!!option.discount_percent);
+  const [editName, setEditName] = useState(false);
+  const [draftName, setDraftName] = useState(option.name);
+
+  return (
+    <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 mb-3 hover:border-brand/40 transition-colors">
+      {/* Option header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-brand flex-shrink-0" />
+          {editName ? (
+            <input
+              autoFocus
+              className="text-sm font-bold text-brand bg-transparent border-b border-brand outline-none"
+              value={draftName}
+              onChange={e => setDraftName(e.target.value)}
+              onBlur={() => { dispatch({ type: 'OPTION_RENAME', i: oi, name: draftName }); setEditName(false); }}
+              onKeyDown={e => { if (e.key === 'Enter') { dispatch({ type: 'OPTION_RENAME', i: oi, name: draftName }); setEditName(false); } }}
+            />
+          ) : (
+            <span
+              className="text-sm font-bold text-brand cursor-text hover:underline"
+              onClick={() => { setDraftName(option.name); setEditName(true); }}
+            >
+              {option.name}
+            </span>
+          )}
+          <span className="text-xs text-gray-400">(לחץ לשינוי שם)</span>
+        </div>
+        {canDelete && (
+          <button
+            onClick={() => dispatch({ type: 'OPTION_DEL', i: oi })}
+            className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            הסר
+          </button>
+        )}
+      </div>
+
+      {/* Phases table */}
+      <div className="overflow-x-auto mb-3">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100">
+              <th className="text-right text-xs text-gray-500 font-medium pb-1.5 pr-1">שלב / שירות</th>
+              <th className="text-right text-xs text-gray-500 font-medium pb-1.5 w-28">מחיר ({currencySymbol})</th>
+              <th className="text-right text-xs text-gray-500 font-medium pb-1.5">תיאור</th>
+              <th className="pb-1.5 w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {(option.phases || []).map((p, pi) => (
+              <tr key={pi} className="group">
+                <td className="py-1 pl-2">
+                  <input className="input text-sm" value={p.name} onChange={e => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'name', v: e.target.value })} placeholder="שם השלב..." />
+                </td>
+                <td className="py-1 pl-2 w-28">
+                  <input className="input text-sm" type="number" value={p.price} onChange={e => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'price', v: e.target.value })} placeholder="0" />
+                </td>
+                <td className="py-1 pl-2">
+                  <input className="input text-sm" value={p.description} onChange={e => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'description', v: e.target.value })} placeholder="תיאור..." />
+                </td>
+                <td className="py-1">
+                  <button onClick={() => dispatch({ type: 'OPTION_PHASE_DEL', oi, pi })} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button onClick={() => dispatch({ type: 'OPTION_PHASE_ADD', oi })} className="flex items-center gap-1.5 text-xs text-brand hover:text-brand-600 font-medium mt-1.5">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          הוסף שלב
+        </button>
+      </div>
+
+      {/* Discount toggle */}
+      <div className="flex items-center gap-2 mb-2">
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-500">
+          <input
+            type="checkbox"
+            checked={showDiscount}
+            onChange={e => { setShowDiscount(e.target.checked); if (!e.target.checked) dispatch({ type: 'OPTION_DISCOUNT', i: oi, v: null }); }}
+            className="rounded border-gray-300 text-brand focus:ring-brand/30"
+          />
+          הנחה לאופציה זו
+        </label>
+        {showDiscount && (
+          <div className="flex items-center gap-1">
+            <input
+              type="number" min="0" max="100"
+              className="input w-16 text-xs"
+              value={option.discount_percent || ''}
+              onChange={e => dispatch({ type: 'OPTION_DISCOUNT', i: oi, v: e.target.value ? parseFloat(e.target.value) : null })}
+              placeholder="10"
+            />
+            <span className="text-xs text-gray-500">%</span>
+          </div>
+        )}
+      </div>
+
+      {/* Price summary */}
+      <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs space-y-1">
+        {showDiscount && option.discount_percent && (
+          <div className="flex justify-between text-gray-500">
+            <span>הנחה ({option.discount_percent}%)</span>
+            <span className="text-red-500">−{currencySymbol}{prices.discount.toLocaleString('he-IL')}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-gray-600">
+          <span>לפני מע״מ</span>
+          <span className="font-medium">{currencySymbol}{prices.afterDiscount.toLocaleString('he-IL')}</span>
+        </div>
+        <div className="flex justify-between text-gray-500">
+          <span>מע״מ {vatPct}%</span>
+          <span>{currencySymbol}{prices.vat.toLocaleString('he-IL')}</span>
+        </div>
+        <div className="flex justify-between font-bold text-brand text-sm pt-1 border-t border-gray-200">
+          <span>סה״כ כולל מע״מ</span>
+          <span>{currencySymbol}{prices.total.toLocaleString('he-IL')}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function QuoteBuilder() {
-  const { id } = useParams();
+  const { id, templateId } = useParams();
+  const isTemplateMode = !!templateId;
   const navigate = useNavigate();
   const { settings } = useAppSettings();
   const vatPct = parseFloat(settings?.vat_percent || 18);
   const currencySymbol = settings?.currency_symbol || '₪';
 
   const [state, dispatch] = useReducer(reducer, null, () => initQuote(settings));
-  const [loading, setLoading] = useState(!!id);
+  const [loading, setLoading] = useState(!!(id || templateId));
   const [saving, setSaving] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templateDesc, setTemplateDesc] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [toast, setToast] = useState({ msg: '', type: 'success' });
   const [showDiscountRow, setShowDiscountRow] = useState(false);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendToken, setSendToken] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const set = useCallback((key, value) => dispatch({ type: 'SET', key, value }), []);
 
-  // Load existing quote
+  const showToast = useCallback((msg, type = 'success') => {
+    setToast({ msg, type });
+  }, []);
+
+  // Load existing quote or template
   useEffect(() => {
+    if (templateId) {
+      setLoading(true);
+      getTemplate(templateId)
+        .then(q => {
+          dispatch({ type: 'LOAD', payload: q });
+          setShowDiscountRow(!!q.discount_percent);
+        })
+        .catch(() => setError('שגיאה בטעינת התבנית'))
+        .finally(() => setLoading(false));
+      return;
+    }
     if (!id) {
       getNextNumber().then(({ number }) => set('number', number)).catch(() => {});
       return;
@@ -223,7 +441,7 @@ export default function QuoteBuilder() {
       })
       .catch(() => setError('שגיאה בטעינת ההצעה'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, templateId]);
 
   const prices = calcPrices(state.phases, state.discount_percent, vatPct);
 
@@ -234,35 +452,58 @@ export default function QuoteBuilder() {
       const payload = { ...state };
       if (status) payload.status = status;
       let saved;
-      if (id) {
+      if (isTemplateMode) {
+        // Save as template
+        saved = await updateTemplate(templateId, payload);
+        showToast('תבנית נשמרה בהצלחה');
+      } else if (id) {
         saved = await updateQuote(id, payload);
+        showToast('הצעה נשמרה בהצלחה');
       } else {
         saved = await createQuote(payload);
+        showToast('הצעה נשמרה בהצלחה');
       }
-      setSuccess('הצעה נשמרה בהצלחה');
-      setTimeout(() => setSuccess(''), 3000);
-      if (!id) navigate(`/quotes/${saved.id}/edit`);
+      if (!id && !isTemplateMode) navigate(`/quotes/${saved.id}/edit`);
+      return saved;
     } catch (e) {
-      setError('שגיאה בשמירה: ' + (e.response?.data?.error || e.message));
+      const msg = 'שגיאה בשמירה: ' + (e.response?.data?.error || e.message);
+      setError(msg);
+      showToast(msg, 'error');
+      return null;
     } finally {
       setSaving(false);
     }
   };
 
+  const handleSaveAndSend = async () => {
+    const saved = await handleSave('sent');
+    if (saved && !isTemplateMode) {
+      const token = saved.token || state.token;
+      setSendToken(token);
+      setSendModalOpen(true);
+    }
+  };
+
+  const sendLink = sendToken ? `${window.location.origin}/p/${sendToken}` : '';
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(sendLink).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   // Apply AI-generated content (full or partial)
   const handleAIApply = useCallback((generated, mode) => {
-    const jsonFields = ['services', 'phases', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
+    const jsonFields = ['services', 'phases', 'pricing_options', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
     const scalarFields = ['client_name', 'project_title', 'package_name', 'summary_text', 'discount_percent', 'closing_text'];
 
     if (mode === 'full') {
-      // Apply all generated fields
       [...scalarFields, ...jsonFields].forEach(key => {
         if (generated[key] !== undefined) {
           dispatch({ type: 'SET', key, value: generated[key] });
         }
       });
     } else {
-      // Partial update — only apply provided fields
       Object.entries(generated).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
           dispatch({ type: 'SET', key, value });
@@ -275,8 +516,7 @@ export default function QuoteBuilder() {
     try {
       await createTemplate({ ...state, template_name: templateName, template_description: templateDesc, quote_id: id || undefined });
       setSaveTemplateOpen(false);
-      setSuccess('תבנית נשמרה בהצלחה');
-      setTimeout(() => setSuccess(''), 3000);
+      showToast('תבנית נשמרה בהצלחה');
     } catch (e) {
       setError('שגיאה בשמירת תבנית');
     }
@@ -290,8 +530,13 @@ export default function QuoteBuilder() {
     );
   }
 
+  const hasOptions = (state.pricing_options || []).length > 0;
+
   return (
     <div className="min-h-screen bg-surface">
+      {/* Center Toast */}
+      <Toast message={toast.msg} type={toast.type} onDone={() => setToast({ msg: '', type: 'success' })} />
+
       {/* Topbar */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
@@ -300,13 +545,15 @@ export default function QuoteBuilder() {
           </button>
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-dark truncate">
-              {id ? `עריכת הצעה — ${state.number}` : 'הצעה חדשה'}
+              {isTemplateMode
+                ? `עריכת תבנית — ${state.template_name || 'ללא שם'}`
+                : id ? `עריכת הצעה — ${state.number}` : 'הצעה חדשה'}
             </h1>
-            {state.client_name && <p className="text-xs text-gray-500 truncate">{state.client_name}</p>}
+            {isTemplateMode && <span className="text-xs text-brand font-medium bg-brand/10 px-2 py-0.5 rounded-md">מצב תבנית</span>}
+            {!isTemplateMode && state.client_name && <p className="text-xs text-gray-500 truncate">{state.client_name}</p>}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {success && <span className="text-xs text-green-600 font-medium">{success}</span>}
           {error && <span className="text-xs text-red-500 font-medium">{error}</span>}
           <button className="btn-ghost text-xs" onClick={() => setSaveTemplateOpen(true)}>שמור כתבנית</button>
           {id && (
@@ -314,10 +561,18 @@ export default function QuoteBuilder() {
               תצוגה מקדימה
             </button>
           )}
-          <button className="btn-secondary text-xs" onClick={() => handleSave()} disabled={saving}>שמור טיוטה</button>
-          <button className="btn-primary text-xs" onClick={() => handleSave('sent')} disabled={saving}>
-            {saving ? 'שומר...' : 'שמור ושלח'}
-          </button>
+          {isTemplateMode ? (
+            <button className="btn-primary text-xs" onClick={() => handleSave()} disabled={saving}>
+              {saving ? 'שומר...' : 'שמור תבנית'}
+            </button>
+          ) : (
+            <>
+              <button className="btn-secondary text-xs" onClick={() => handleSave()} disabled={saving}>שמור טיוטה</button>
+              <button className="btn-primary text-xs" onClick={handleSaveAndSend} disabled={saving}>
+                {saving ? 'שומר...' : 'שמור ושלח'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -398,96 +653,143 @@ export default function QuoteBuilder() {
           onToggle={() => dispatch({ type: 'SECTION_TOGGLE', sec: 'pricing' })}
           onRenameTitle={(t) => dispatch({ type: 'SECTION_TITLE', sec: 'pricing', title: t })}
         >
-          {/* Phases table */}
-          <div className="overflow-x-auto mb-4">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-right text-xs text-gray-500 font-medium pb-2 pr-1">שלב / שירות</th>
-                  <th className="text-right text-xs text-gray-500 font-medium pb-2 w-32">מחיר ({currencySymbol})</th>
-                  <th className="text-right text-xs text-gray-500 font-medium pb-2">תיאור</th>
-                  <th className="pb-2 w-10" />
-                </tr>
-              </thead>
-              <tbody>
-                {state.phases.map((p, i) => (
-                  <tr key={i} className="group">
-                    <td className="py-1.5 pl-2">
-                      <input className="input text-sm" value={p.name} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'name', v: e.target.value })} placeholder="שם השלב..." />
-                    </td>
-                    <td className="py-1.5 pl-2 w-32">
-                      <input className="input text-sm" type="number" value={p.price} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'price', v: e.target.value })} placeholder="0" />
-                    </td>
-                    <td className="py-1.5 pl-2">
-                      <input className="input text-sm" value={p.description} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'description', v: e.target.value })} placeholder="תיאור קצר..." />
-                    </td>
-                    <td className="py-1.5">
-                      <button onClick={() => dispatch({ type: 'PHASE_DEL', i })} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <button onClick={() => dispatch({ type: 'PHASE_ADD' })} className="flex items-center gap-1.5 text-xs text-brand hover:text-brand-600 font-medium mt-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              הוסף שלב
-            </button>
-          </div>
+          {/* ── Multi-option mode ── */}
+          {hasOptions ? (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-brand bg-brand/10 px-2.5 py-1 rounded-lg">מצב אופציות תמחור</span>
+                  <span className="text-xs text-gray-400">{state.pricing_options.length} אופציות</span>
+                </div>
+                <button
+                  onClick={() => dispatch({ type: 'OPTION_CLEAR' })}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                >
+                  חזור לתמחור בודד
+                </button>
+              </div>
 
-          {/* Discount toggle */}
-          <div className="flex items-center gap-2 mb-3">
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={showDiscountRow}
-                onChange={e => { setShowDiscountRow(e.target.checked); if (!e.target.checked) set('discount_percent', null); }}
-                className="rounded border-gray-300 text-brand focus:ring-brand/30"
-              />
-              הוסף הנחה
-            </label>
-            {showDiscountRow && (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="input w-20 text-sm"
-                  value={state.discount_percent || ''}
-                  onChange={e => set('discount_percent', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="10"
+              {state.pricing_options.map((option, oi) => (
+                <OptionCard
+                  key={option.id || oi}
+                  option={option}
+                  oi={oi}
+                  currencySymbol={currencySymbol}
+                  vatPct={vatPct}
+                  dispatch={dispatch}
+                  canDelete={state.pricing_options.length > 1}
                 />
-                <span className="text-sm text-gray-500">%</span>
-              </div>
-            )}
-          </div>
+              ))}
 
-          {/* Price summary */}
-          <div className="bg-gray-50 rounded-xl p-4 space-y-1.5 text-sm">
-            <div className="flex justify-between text-gray-600">
-              <span>לפני הנחה</span>
-              <span className="font-medium">{currencySymbol}{prices.subtotal.toLocaleString('he-IL')}</span>
+              <button
+                onClick={() => dispatch({ type: 'OPTION_ADD' })}
+                className="w-full py-2.5 border-2 border-dashed border-brand/30 rounded-xl text-sm text-brand hover:border-brand hover:bg-brand/5 transition-colors font-medium"
+              >
+                + הוסף אופציה נוספת
+              </button>
             </div>
-            {showDiscountRow && state.discount_percent && (
-              <div className="flex justify-between text-gray-500">
-                <span>הנחה ({state.discount_percent}%)</span>
-                <span className="text-red-500">−{currencySymbol}{prices.discount.toLocaleString('he-IL')}</span>
+          ) : (
+            /* ── Single pricing mode ── */
+            <div>
+              {/* Phases table */}
+              <div className="overflow-x-auto mb-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-right text-xs text-gray-500 font-medium pb-2 pr-1">שלב / שירות</th>
+                      <th className="text-right text-xs text-gray-500 font-medium pb-2 w-32">מחיר ({currencySymbol})</th>
+                      <th className="text-right text-xs text-gray-500 font-medium pb-2">תיאור</th>
+                      <th className="pb-2 w-10" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.phases.map((p, i) => (
+                      <tr key={i} className="group">
+                        <td className="py-1.5 pl-2">
+                          <input className="input text-sm" value={p.name} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'name', v: e.target.value })} placeholder="שם השלב..." />
+                        </td>
+                        <td className="py-1.5 pl-2 w-32">
+                          <input className="input text-sm" type="number" value={p.price} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'price', v: e.target.value })} placeholder="0" />
+                        </td>
+                        <td className="py-1.5 pl-2">
+                          <input className="input text-sm" value={p.description} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'description', v: e.target.value })} placeholder="תיאור קצר..." />
+                        </td>
+                        <td className="py-1.5">
+                          <button onClick={() => dispatch({ type: 'PHASE_DEL', i })} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button onClick={() => dispatch({ type: 'PHASE_ADD' })} className="flex items-center gap-1.5 text-xs text-brand hover:text-brand-600 font-medium mt-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  הוסף שלב
+                </button>
               </div>
-            )}
-            <div className="flex justify-between text-gray-600">
-              <span>לפני מע״מ</span>
-              <span className="font-medium">{currencySymbol}{prices.afterDiscount.toLocaleString('he-IL')}</span>
+
+              {/* Discount toggle */}
+              <div className="flex items-center gap-2 mb-3">
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={showDiscountRow}
+                    onChange={e => { setShowDiscountRow(e.target.checked); if (!e.target.checked) set('discount_percent', null); }}
+                    className="rounded border-gray-300 text-brand focus:ring-brand/30"
+                  />
+                  הוסף הנחה
+                </label>
+                {showDiscountRow && (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number" min="0" max="100"
+                      className="input w-20 text-sm"
+                      value={state.discount_percent || ''}
+                      onChange={e => set('discount_percent', e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="10"
+                    />
+                    <span className="text-sm text-gray-500">%</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Price summary */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-1.5 text-sm">
+                <div className="flex justify-between text-gray-600">
+                  <span>לפני הנחה</span>
+                  <span className="font-medium">{currencySymbol}{prices.subtotal.toLocaleString('he-IL')}</span>
+                </div>
+                {showDiscountRow && state.discount_percent && (
+                  <div className="flex justify-between text-gray-500">
+                    <span>הנחה ({state.discount_percent}%)</span>
+                    <span className="text-red-500">−{currencySymbol}{prices.discount.toLocaleString('he-IL')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-gray-600">
+                  <span>לפני מע״מ</span>
+                  <span className="font-medium">{currencySymbol}{prices.afterDiscount.toLocaleString('he-IL')}</span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                  <span>מע״מ {vatPct}%</span>
+                  <span>{currencySymbol}{prices.vat.toLocaleString('he-IL')}</span>
+                </div>
+                <div className="flex justify-between text-base font-bold text-brand pt-2 border-t border-gray-200">
+                  <span>סה״כ כולל מע״מ</span>
+                  <span>{currencySymbol}{prices.total.toLocaleString('he-IL')}</span>
+                </div>
+              </div>
+
+              {/* Switch to options mode */}
+              <button
+                onClick={() => dispatch({ type: 'OPTION_INIT' })}
+                className="mt-3 flex items-center gap-1.5 text-xs text-gray-400 hover:text-brand font-medium transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                הוסף אופציות תמחור (א׳, ב׳...)
+              </button>
             </div>
-            <div className="flex justify-between text-gray-500">
-              <span>מע״מ {vatPct}%</span>
-              <span>{currencySymbol}{prices.vat.toLocaleString('he-IL')}</span>
-            </div>
-            <div className="flex justify-between text-base font-bold text-brand pt-2 border-t border-gray-200">
-              <span>סה״כ כולל מע״מ</span>
-              <span>{currencySymbol}{prices.total.toLocaleString('he-IL')}</span>
-            </div>
-          </div>
+          )}
         </SectionCard>
 
         {/* Section 03 — Third Party Costs */}
@@ -669,11 +971,19 @@ export default function QuoteBuilder() {
 
         {/* Bottom save bar */}
         <div className="flex justify-end gap-2 pb-8">
-          <button className="btn-secondary" onClick={() => navigate('/')}>ביטול</button>
-          <button className="btn-secondary" onClick={() => handleSave()} disabled={saving}>שמור טיוטה</button>
-          <button className="btn-primary" onClick={() => handleSave('sent')} disabled={saving}>
-            {saving ? 'שומר...' : 'שמור ושלח'}
-          </button>
+          <button className="btn-secondary" onClick={() => isTemplateMode ? navigate('/templates') : navigate('/')}>ביטול</button>
+          {isTemplateMode ? (
+            <button className="btn-primary" onClick={() => handleSave()} disabled={saving}>
+              {saving ? 'שומר...' : 'שמור תבנית'}
+            </button>
+          ) : (
+            <>
+              <button className="btn-secondary" onClick={() => handleSave()} disabled={saving}>שמור טיוטה</button>
+              <button className="btn-primary" onClick={handleSaveAndSend} disabled={saving}>
+                {saving ? 'שומר...' : 'שמור ושלח'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -698,6 +1008,47 @@ export default function QuoteBuilder() {
           <div className="flex gap-2 justify-end pt-2">
             <button className="btn-secondary" onClick={() => setSaveTemplateOpen(false)}>ביטול</button>
             <button className="btn-primary" onClick={handleSaveTemplate} disabled={!templateName.trim()}>שמור</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Send Modal */}
+      <Modal open={sendModalOpen} onClose={() => setSendModalOpen(false)} title="שמור ושלח" size="sm">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2.5 p-3.5 bg-green-50 rounded-xl border border-green-200">
+            <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm text-green-700 font-medium">ההצעה נשמרה ועודכנה לסטטוס "נשלחה"!</span>
+          </div>
+          <div>
+            <label className="label">קישור ללקוח</label>
+            <p className="text-xs text-gray-500 mb-2">שלח את הקישור הבא ללקוח לצפייה ואישור ההצעה:</p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                className="input text-xs font-mono flex-1 bg-gray-50 cursor-text"
+                value={sendLink}
+                onClick={e => e.target.select()}
+                dir="ltr"
+              />
+              <button
+                onClick={handleCopyLink}
+                className={`btn-primary text-xs whitespace-nowrap transition-all ${copied ? 'bg-green-600' : ''}`}
+              >
+                {copied ? '✓ הועתק!' : 'העתק קישור'}
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-between pt-1">
+            <button
+              className="btn-secondary text-xs flex items-center gap-1.5"
+              onClick={() => window.open(`/p/${sendToken}`, '_blank')}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              תצוגה מקדימה
+            </button>
+            <button className="btn-ghost text-xs" onClick={() => setSendModalOpen(false)}>סגור</button>
           </div>
         </div>
       </Modal>

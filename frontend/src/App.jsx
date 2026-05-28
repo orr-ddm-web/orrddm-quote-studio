@@ -47,6 +47,7 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="/quotes/new" element={<QuoteBuilder />} />
             <Route path="/quotes/:id/edit" element={<QuoteBuilder />} />
+            <Route path="/templates/:templateId/edit" element={<QuoteBuilder />} />
             <Route path="/templates" element={<Templates />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

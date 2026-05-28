@@ -21,13 +21,14 @@ router.get('/:token', async (req, res) => {
   let browser;
   try {
     browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     });
     const page = await browser.newPage();
-    await page.goto(printUrl, { waitUntil: 'networkidle0', timeout: 30000 });
-    await page.waitForTimeout(500);
+    await page.goto(printUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // Wait for React to render and fonts to load
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const pdf = await page.pdf({
       format: 'A4',

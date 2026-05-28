@@ -12,7 +12,7 @@ function getSettings() {
 
 function parseQuote(q) {
   if (!q) return null;
-  const jsonFields = ['services', 'phases', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
+  const jsonFields = ['services', 'phases', 'pricing_options', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
   jsonFields.forEach((f) => {
     if (q[f]) {
       try { q[f] = JSON.parse(q[f]); }
@@ -99,6 +99,7 @@ router.post('/', (req, res) => {
     services: JSON.stringify(body.services || JSON.parse(settings.default_services || '[]')),
     package_name: body.package_name || '',
     phases: JSON.stringify(body.phases || []),
+    pricing_options: JSON.stringify(body.pricing_options || []),
     discount_percent: body.discount_percent ?? null,
     third_party_costs: JSON.stringify(body.third_party_costs || []),
     timeline: JSON.stringify(body.timeline || JSON.parse(settings.default_timeline || '[]')),
@@ -114,10 +115,10 @@ router.post('/', (req, res) => {
 
   const result = db.prepare(`
     INSERT INTO quotes (number, token, client_name, project_title, date, status, summary_text, services,
-      package_name, phases, discount_percent, third_party_costs, timeline, payment_terms, warranty,
+      package_name, phases, pricing_options, discount_percent, third_party_costs, timeline, payment_terms, warranty,
       sections, show_signature, signature_label, closing_text, custom_sections, is_template)
     VALUES (@number, @token, @client_name, @project_title, @date, @status, @summary_text, @services,
-      @package_name, @phases, @discount_percent, @third_party_costs, @timeline, @payment_terms, @warranty,
+      @package_name, @phases, @pricing_options, @discount_percent, @third_party_costs, @timeline, @payment_terms, @warranty,
       @sections, @show_signature, @signature_label, @closing_text, @custom_sections, @is_template)
   `).run(quote);
 
@@ -136,7 +137,7 @@ router.put('/:id', (req, res) => {
     'client_name', 'project_title', 'date', 'status', 'summary_text',
     'package_name', 'discount_percent', 'show_signature', 'signature_label', 'closing_text',
   ];
-  const jsonFields = ['services', 'phases', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
+  const jsonFields = ['services', 'phases', 'pricing_options', 'third_party_costs', 'timeline', 'payment_terms', 'warranty', 'sections', 'custom_sections'];
   const updates = {};
 
   fields.forEach((f) => { if (body[f] !== undefined) updates[f] = body[f]; });
