@@ -166,6 +166,60 @@ export default function QuoteView() {
   const showTerms = sections.terms?.visible !== false;
 
   return (
+    <>
+    <style>{`
+      @page {
+        size: A4;
+        margin: 18mm 14mm;
+      }
+      @media print {
+        .no-print { display: none !important; }
+        body { background: white !important; }
+        /* prevent sections from being cut mid-content */
+        section {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        /* prevent heading from being orphaned at page bottom */
+        h3 {
+          break-after: avoid;
+          page-break-after: avoid;
+        }
+        /* table rows stay intact */
+        tr {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        thead {
+          display: table-header-group;
+        }
+        /* option pricing blocks */
+        .option-card {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        /* price summary box */
+        .price-summary {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        /* header block */
+        .quote-header {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        /* footer */
+        footer {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        /* remove outer page padding since @page margin handles it */
+        .print-outer {
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
+        }
+      }
+    `}</style>
     <div className="min-h-screen bg-[#FDF8F5] text-[#1a1a1a]" dir="rtl" style={{ fontFamily: '"Google Sans", Inter, system-ui, sans-serif' }}>
       {/* Print download button */}
       {!isPrint && (
@@ -183,9 +237,9 @@ export default function QuoteView() {
         </div>
       )}
 
-      <div className="max-w-[800px] mx-auto px-6 py-10">
+      <div className="max-w-[800px] mx-auto px-6 py-10 print-outer">
         {/* Header */}
-        <div className="flex items-start justify-between mb-10">
+        <div className="flex items-start justify-between mb-10 quote-header">
           <div>
             {logoPath ? (
               <img src={logoPath} alt={businessName} className="h-12 object-contain mb-3" />
@@ -256,7 +310,7 @@ export default function QuoteView() {
                 {quote.pricing_options.map((option, oi) => {
                   const optPrices = calcPrices(option.phases || [], option.discount_percent, vatPct);
                   return (
-                    <div key={oi} className="rounded-xl overflow-hidden border border-gray-200">
+                    <div key={oi} className="rounded-xl overflow-hidden border border-gray-200 option-card">
                       {/* Option header */}
                       <div className="px-4 py-2.5 text-sm font-bold" style={{ backgroundColor: brandColor + '18', color: brandColor }}>
                         {option.name}
@@ -283,7 +337,7 @@ export default function QuoteView() {
                           </table>
                         )}
                         {/* Option price summary */}
-                        <div className="bg-gray-50 rounded-xl p-4 max-w-xs mr-auto">
+                        <div className="bg-gray-50 rounded-xl p-4 max-w-xs mr-auto price-summary">
                           <div className="space-y-1.5 text-sm">
                             {option.discount_percent && (
                               <div className="flex justify-between text-gray-500">
@@ -334,7 +388,7 @@ export default function QuoteView() {
                   </table>
                 )}
                 {/* Price summary */}
-                <div className="bg-gray-50 rounded-xl p-5 max-w-xs mr-auto">
+                <div className="bg-gray-50 rounded-xl p-5 max-w-xs mr-auto price-summary">
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between text-gray-600">
                       <span>לפני הנחה</span>
@@ -560,5 +614,6 @@ export default function QuoteView() {
         </footer>
       </div>
     </div>
+    </>
   );
 }

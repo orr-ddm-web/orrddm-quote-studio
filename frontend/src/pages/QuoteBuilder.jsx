@@ -445,7 +445,7 @@ export default function QuoteBuilder() {
 
   const prices = calcPrices(state.phases, state.discount_percent, vatPct);
 
-  const handleSave = async (status = null) => {
+  const handleSave = async (status = null, silent = false) => {
     setSaving(true);
     setError('');
     try {
@@ -455,13 +455,13 @@ export default function QuoteBuilder() {
       if (isTemplateMode) {
         // Save as template
         saved = await updateTemplate(templateId, payload);
-        showToast('תבנית נשמרה בהצלחה');
+        if (!silent) showToast('תבנית נשמרה בהצלחה');
       } else if (id) {
         saved = await updateQuote(id, payload);
-        showToast('הצעה נשמרה בהצלחה');
+        if (!silent) showToast('הצעה נשמרה בהצלחה');
       } else {
         saved = await createQuote(payload);
-        showToast('הצעה נשמרה בהצלחה');
+        if (!silent) showToast('הצעה נשמרה בהצלחה');
       }
       if (!id && !isTemplateMode) navigate(`/quotes/${saved.id}/edit`);
       return saved;
@@ -476,7 +476,7 @@ export default function QuoteBuilder() {
   };
 
   const handleSaveAndSend = async () => {
-    const saved = await handleSave('sent');
+    const saved = await handleSave('sent', true); // silent — modal itself confirms success
     if (saved && !isTemplateMode) {
       const token = saved.token || state.token;
       setSendToken(token);

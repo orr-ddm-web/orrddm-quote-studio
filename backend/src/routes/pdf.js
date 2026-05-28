@@ -34,6 +34,7 @@ router.get('/:token', async (req, res) => {
       format: 'A4',
       printBackground: true,
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      preferCSSPageSize: true,
     });
 
     const clientName = q.client_name.replace(/\s+/g, '_') || 'לקוח';
