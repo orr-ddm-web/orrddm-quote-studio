@@ -17,8 +17,12 @@ router.get('/', (req, res) => {
   res.json(rows.map(r => {
     let items = [];
     try { items = JSON.parse(r.items || '[]'); } catch {}
-    const subtotal = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
-    const vat = subtotal * ((r.vat_percent || 18) / 100);
+    const vatRate = (r.vat_percent || 18) / 100;
+    const subtotal = items.reduce((s, i) => {
+      const p = parseFloat(i.price) || 0;
+      return s + (i.vat_included ? p / (1 + vatRate) : p);
+    }, 0);
+    const vat = subtotal * vatRate;
     return { ...r, items: undefined, subtotal, total: subtotal + vat };
   }));
 });
