@@ -22,6 +22,7 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/quotes', require('./routes/quotes'));
 app.use('/api/templates', require('./routes/templates'));
+app.use('/api/payment-summaries', require('./routes/paymentSummaries'));
 app.use('/api/pdf', require('./routes/pdf'));
 app.use('/api/ai', require('./routes/ai'));
 

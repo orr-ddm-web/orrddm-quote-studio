@@ -64,6 +64,21 @@ db.exec(`
 try { db.exec("ALTER TABLE quotes ADD COLUMN pricing_options TEXT DEFAULT '[]'"); } catch {}
 try { db.exec("ALTER TABLE quotes ADD COLUMN client_logo TEXT DEFAULT ''"); } catch {}
 
+// Payment summaries table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS payment_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT UNIQUE,
+    client_name TEXT DEFAULT '',
+    date TEXT,
+    items TEXT DEFAULT '[]',
+    notes TEXT DEFAULT '',
+    vat_percent REAL DEFAULT 18,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // Default settings
 const DEFAULT_SETTINGS = {
   business_name: 'OrrDDM',
@@ -101,6 +116,14 @@ const DEFAULT_SETTINGS = {
   ]),
   ai_api_key: '',
   ai_model: 'claude-haiku-4-5-20251001',
+  // Payment details
+  payment_bank_name: 'ONE ZERO',
+  payment_bank_number: '18',
+  payment_bank_branch: '001',
+  payment_bank_account: '201719044',
+  payment_bit_number: '0543011361',
+  payment_credit_link: 'https://pay.grow.link/e2620082207046c2f7dff46c9601f752-MjI0NzI3MA',
+  payment_account_owner: 'אור פישביין',
   default_timeline: JSON.stringify([
     { stage: 'אפיון ועיצוב', description: '1-2 שבועות' },
     { stage: 'פיתוח', description: '3-4 שבועות' },

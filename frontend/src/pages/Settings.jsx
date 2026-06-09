@@ -313,6 +313,36 @@ export default function Settings() {
         />
       </Section>
 
+      {/* Payment Details */}
+      <Section title="פרטי תשלום (לסיכומי תשלום)">
+        <p className="text-xs text-gray-400 mb-4">הפרטים האלו יופיעו אוטומטית בכל מסמך סיכום לתשלום.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="שם בעל החשבון">
+            <input className="input" value={form.payment_account_owner || ''} onChange={e => set('payment_account_owner', e.target.value)} placeholder="אור פישביין" />
+          </Field>
+          <Field label="שם בנק">
+            <input className="input" value={form.payment_bank_name || ''} onChange={e => set('payment_bank_name', e.target.value)} placeholder="ONE ZERO" />
+          </Field>
+          <Field label="מספר בנק">
+            <input className="input" value={form.payment_bank_number || ''} onChange={e => set('payment_bank_number', e.target.value)} placeholder="18" />
+          </Field>
+          <Field label="מספר סניף">
+            <input className="input" value={form.payment_bank_branch || ''} onChange={e => set('payment_bank_branch', e.target.value)} placeholder="001" />
+          </Field>
+          <Field label="מספר חשבון">
+            <input className="input font-mono" value={form.payment_bank_account || ''} onChange={e => set('payment_bank_account', e.target.value)} placeholder="201719044" />
+          </Field>
+          <Field label="מספר ביט / פייבוקס">
+            <input className="input" value={form.payment_bit_number || ''} onChange={e => set('payment_bit_number', e.target.value)} placeholder="054-xxx-xxxx" />
+          </Field>
+          <div className="col-span-2">
+            <Field label="לינק תשלום אשראי">
+              <input className="input text-xs" value={form.payment_credit_link || ''} onChange={e => set('payment_credit_link', e.target.value)} placeholder="https://pay.grow.link/..." />
+            </Field>
+          </div>
+        </div>
+      </Section>
+
       {/* AI Settings */}
       <Section title="עוזר AI (Claude)">
         <p className="text-xs text-gray-400 mb-4">

@@ -38,6 +38,13 @@ export const uploadLogo = (file) => {
   return axios.post('/api/settings/logo', fd).then(r => r.data);
 };
 
+// Payment Summaries
+export const getPaymentSummaries = () => api.get('/payment-summaries').then(r => r.data);
+export const getPaymentSummary = (id) => api.get(`/payment-summaries/${id}`).then(r => r.data);
+export const createPaymentSummary = (data) => api.post('/payment-summaries', data).then(r => r.data);
+export const updatePaymentSummary = (id, data) => api.put(`/payment-summaries/${id}`, data).then(r => r.data);
+export const deletePaymentSummary = (id) => api.delete(`/payment-summaries/${id}`).then(r => r.data);
+
 // AI
 export const aiGenerateQuote = (brief, current_quote) => api.post('/ai/generate-quote', { brief, current_quote }).then(r => r.data);
 export const aiChat = (message, quote_context) => api.post('/ai/chat', { message, quote_context }).then(r => r.data);

@@ -7,6 +7,8 @@ import QuoteBuilder from './pages/QuoteBuilder';
 import QuoteView from './pages/QuoteView';
 import Templates from './pages/Templates';
 import Settings from './pages/Settings';
+import PaymentSummary from './pages/PaymentSummary';
+import PaymentSummaryView from './pages/PaymentSummaryView';
 
 export const SettingsContext = createContext({});
 export const useAppSettings = () => useContext(SettingsContext);
@@ -40,8 +42,9 @@ export default function App() {
     <SettingsContext.Provider value={{ settings, setSettings }}>
       <BrowserRouter>
         <Routes>
-          {/* Public quote view — no sidebar */}
+          {/* Public views — no sidebar */}
           <Route path="/p/:token" element={<QuoteView />} />
+          <Route path="/ps/:id" element={<PaymentSummaryView />} />
           {/* App routes with sidebar layout */}
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
@@ -49,6 +52,9 @@ export default function App() {
             <Route path="/quotes/:id/edit" element={<QuoteBuilder />} />
             <Route path="/templates/:templateId/edit" element={<QuoteBuilder />} />
             <Route path="/templates" element={<Templates />} />
+            <Route path="/payment-summaries" element={<PaymentSummary />} />
+            <Route path="/payment-summaries/new" element={<PaymentSummary />} />
+            <Route path="/payment-summaries/:id/edit" element={<PaymentSummary />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
