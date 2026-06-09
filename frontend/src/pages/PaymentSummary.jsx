@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer, useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAppSettings } from '../App';
 import {
   getPaymentSummary, createPaymentSummary, updatePaymentSummary,
@@ -146,8 +146,10 @@ function SummaryList() {
 // ── Main export — shows list or editor based on route ─────────────────────────
 export default function PaymentSummary() {
   const { id } = useParams();
-  if (!id) return <SummaryList />;
-  return <Editor id={id === 'new' ? null : id} />;
+  const location = useLocation();
+  const isNew = location.pathname.endsWith('/new');
+  if (!id && !isNew) return <SummaryList />;
+  return <Editor id={(!id || id === 'new') ? null : id} />;
 }
 
 function Editor({ id }) {
