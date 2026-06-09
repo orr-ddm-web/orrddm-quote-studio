@@ -35,7 +35,7 @@ function initState(vatPct) {
   return {
     client_name: '',
     date: new Date().toISOString().split('T')[0],
-    items: [{ description: '', price: '' }],
+    items: [{ description: '', price: '', vat_included: false }],
     notes: '',
     vat_percent: vatPct,
   };
@@ -45,15 +45,14 @@ function reducer(state, action) {
   switch (action.type) {
     case 'LOAD': return { ...action.payload };
     case 'SET': return { ...state, [action.key]: action.value };
-    case 'ITEM_ADD': return { ...state, items: [...state.items, { description: '', price: '' }] };
+    case 'ITEM_ADD': return { ...state, items: [...state.items, { description: '', price: '', vat_included: false }] };
     case 'ITEM_UPD': return { ...state, items: state.items.map((it, i) => i === action.i ? { ...it, [action.k]: action.v } : it) };
     case 'ITEM_DEL': return { ...state, items: state.items.filter((_, i) => i !== action.i) };
     case 'ITEMS_APPEND': {
-      // Filter out empty placeholder rows before appending
       const existing = state.items.filter(it => it.description || it.price);
-      return { ...state, items: [...existing, ...action.items.map(it => ({ description: it.description || '', price: String(it.price || '') }))] };
+      return { ...state, items: [...existing, ...action.items.map(it => ({ description: it.description || '', price: String(it.price || ''), vat_included: it.vat_included || false }))] };
     }
-    case 'ITEMS_REPLACE': return { ...state, items: action.items.map(it => ({ description: it.description || '', price: String(it.price || '') })) };
+    case 'ITEMS_REPLACE': return { ...state, items: action.items.map(it => ({ description: it.description || '', price: String(it.price || ''), vat_included: it.vat_included || false })) };
     default: return state;
   }
 }
@@ -182,9 +181,13 @@ function Editor({ id }) {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Price calculations
-  const subtotal = state.items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
-  const vatAmount = subtotal * (state.vat_percent / 100);
+  // Price calculations — handles mixed vat_included/excluded items
+  const vatRate = state.vat_percent / 100;
+  const subtotal = state.items.reduce((sum, it) => {
+    const p = parseFloat(it.price) || 0;
+    return sum + (it.vat_included ? p / (1 + vatRate) : p);
+  }, 0);
+  const vatAmount = subtotal * vatRate;
   const total = subtotal + vatAmount;
 
   const handleSave = async () => {
@@ -290,6 +293,7 @@ function Editor({ id }) {
               <tr className="border-b border-gray-100">
                 <th className="text-right text-xs text-gray-500 font-medium pb-2 pr-1">תיאור עבודה</th>
                 <th className="text-right text-xs text-gray-500 font-medium pb-2 w-28">מחיר ({currSym})</th>
+                <th className="text-center text-xs text-gray-500 font-medium pb-2 w-28">מע״מ</th>
                 <th className="pb-2 w-8" />
               </tr>
             </thead>
@@ -312,6 +316,19 @@ function Editor({ id }) {
                       onChange={e => dispatch({ type: 'ITEM_UPD', i, k: 'price', v: e.target.value })}
                       placeholder="0"
                     />
+                  </td>
+                  <td className="py-1 pl-2 text-center">
+                    <button
+                      onClick={() => dispatch({ type: 'ITEM_UPD', i, k: 'vat_included', v: !it.vat_included })}
+                      className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-all whitespace-nowrap ${
+                        it.vat_included
+                          ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                          : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                      }`}
+                      title={it.vat_included ? 'לחץ לשינוי לללא מע״מ' : 'לחץ לשינוי לכולל מע״מ'}
+                    >
+                      {it.vat_included ? 'כולל מע״מ' : 'ללא מע״מ'}
+                    </button>
                   </td>
                   <td className="py-1">
                     <button

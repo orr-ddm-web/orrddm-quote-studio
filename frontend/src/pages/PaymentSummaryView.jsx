@@ -50,8 +50,12 @@ export default function PaymentSummaryView() {
   const logoPath = settings?.logo_path;
   const footerText = settings?.footer_text || '';
 
-  const subtotal = (items || []).reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
-  const vatAmt = subtotal * ((vat_percent || 18) / 100);
+  const vatRate = (vat_percent || 18) / 100;
+  const subtotal = (items || []).reduce((s, it) => {
+    const p = parseFloat(it.price) || 0;
+    return s + (it.vat_included ? p / (1 + vatRate) : p);
+  }, 0);
+  const vatAmt = subtotal * vatRate;
   const total = subtotal + vatAmt;
 
   // Payment details
@@ -137,7 +141,10 @@ export default function PaymentSummaryView() {
                   <tr key={i} className="border-b border-gray-100">
                     <td className="py-3 pr-1 text-gray-800">{it.description}</td>
                     <td className="py-3 text-left font-medium" style={{ color: brandColor }}>
-                      {fmt(it.price, currSym)}
+                      <span>{fmt(it.price, currSym)}</span>
+                      {it.vat_included && (
+                        <span className="mr-1.5 text-xs font-normal text-gray-400">(כולל מע״מ)</span>
+                      )}
                     </td>
                   </tr>
                 ))}
