@@ -163,4 +163,72 @@ router.post('/chat', async (req, res) => {
   }
 });
 
+// POST /api/ai/payment-summary — suggest items for payment summary
+router.post('/payment-summary', async (req, res) => {
+  const { brief, current_items } = req.body;
+  if (!brief || brief.trim().length < 3) {
+    return res.status(400).json({ error: 'נא לספק תיאור' });
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY || getSetting('ai_api_key');
+  if (!apiKey) return res.status(400).json({ error: 'לא הוגדר API Key עבור Claude. אנא הגדר בדף ההגדרות.' });
+
+  const model = getSetting('ai_model') || process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
+  const settings = {};
+  db.prepare('SELECT key, value FROM settings').all().forEach(r => { settings[r.key] = r.value; });
+
+  const prompt = `המשתמש (OrrDDM — פיתוח אתרים ושיווק דיגיטלי) צריך לחייב לקוח על עבודות שבוצעו.
+
+תיאור העבודות:
+${brief.trim()}
+
+${current_items && current_items.length > 0 ? `פריטים קיימים כרגע:\n${JSON.stringify(current_items, null, 2)}\n\n` : ''}
+החזר JSON תקין בלבד:
+{
+  "items": [
+    { "description": "תיאור עבודה מפורט ומקצועי", "price": 0000 }
+  ],
+  "message": "משפט קצר המסביר מה הצעת"
+}
+
+כללים:
+- תיאורים ספציפיים, מקצועיים, בעברית
+- מחירים ריאליים לשוק הישראלי (${settings.currency_symbol || '₪'})
+- 2-6 פריטים לפי מה שמתאים
+- price הוא מספר (לא מחרוזת)`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1024,
+        system: 'אתה עוזר מקצועי לחיוב לקוחות עבור OrrDDM. החזר תמיד JSON תקין בלבד, ללא טקסט נוסף.',
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(500).json({ error: 'שגיאה ב-Claude API', details: err });
+    }
+
+    const data = await response.json();
+    const raw = data.content?.[0]?.text || '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return res.status(500).json({ error: 'שגיאה בניתוח תגובת ה-AI' });
+
+    const generated = JSON.parse(jsonMatch[0]);
+    res.json({ ...generated, usage: data.usage });
+  } catch (e) {
+    console.error('AI payment-summary error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

@@ -5,6 +5,7 @@ import {
   getPaymentSummary, createPaymentSummary, updatePaymentSummary,
   getPaymentSummaries, deletePaymentSummary,
 } from '../api';
+import AIAssistantPS from '../components/AIAssistantPS';
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function Toast({ message, type = 'success', onDone }) {
@@ -47,6 +48,12 @@ function reducer(state, action) {
     case 'ITEM_ADD': return { ...state, items: [...state.items, { description: '', price: '' }] };
     case 'ITEM_UPD': return { ...state, items: state.items.map((it, i) => i === action.i ? { ...it, [action.k]: action.v } : it) };
     case 'ITEM_DEL': return { ...state, items: state.items.filter((_, i) => i !== action.i) };
+    case 'ITEMS_APPEND': {
+      // Filter out empty placeholder rows before appending
+      const existing = state.items.filter(it => it.description || it.price);
+      return { ...state, items: [...existing, ...action.items.map(it => ({ description: it.description || '', price: String(it.price || '') }))] };
+    }
+    case 'ITEMS_REPLACE': return { ...state, items: action.items.map(it => ({ description: it.description || '', price: String(it.price || '') })) };
     default: return state;
   }
 }
@@ -373,6 +380,14 @@ function Editor({ id }) {
           </p>
         </div>
       </div>
+
+      {/* AI Assistant */}
+      <AIAssistantPS
+        currentItems={state.items}
+        brandColor={brandColor}
+        onAdd={(newItems) => dispatch({ type: 'ITEMS_APPEND', items: newItems })}
+        onReplace={(newItems) => dispatch({ type: 'ITEMS_REPLACE', items: newItems })}
+      />
     </div>
   );
 }

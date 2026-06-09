@@ -48,5 +48,6 @@ export const deletePaymentSummary = (id) => api.delete(`/payment-summaries/${id}
 // AI
 export const aiGenerateQuote = (brief, current_quote) => api.post('/ai/generate-quote', { brief, current_quote }).then(r => r.data);
 export const aiChat = (message, quote_context) => api.post('/ai/chat', { message, quote_context }).then(r => r.data);
+export const aiPaymentSummary = (brief, current_items) => api.post('/ai/payment-summary', { brief, current_items }).then(r => r.data);
 
 export default api;
