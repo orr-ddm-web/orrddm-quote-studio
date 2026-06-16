@@ -174,6 +174,18 @@ export default function QuoteView() {
   const numTerms      = sn(showTerms);
   const customBase    = _sn; // custom sections continue from here
 
+  // Build section title: if saved title has an auto-number prefix (e.g. "04 | תנאים")
+  // replace the number with the current dynamic one; if user set a fully custom title, keep it.
+  const autoNumRe = /^\d\d \| /;
+  function secTitle(savedTitle, dynamicNum, defaultLabel) {
+    if (!dynamicNum) return null; // section hidden
+    if (!savedTitle || autoNumRe.test(savedTitle)) {
+      const label = savedTitle ? savedTitle.replace(autoNumRe, '') : defaultLabel;
+      return `${dynamicNum} | ${label}`;
+    }
+    return savedTitle; // fully custom title
+  }
+
   return (
     <>
     <style>{`
@@ -295,7 +307,7 @@ export default function QuoteView() {
         {showSummary && (quote.summary_text || (quote.services || []).length > 0) && (
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {sections.summary?.title || `${numSummary} | תקציר הפרויקט`}
+              {secTitle(sections.summary?.title, numSummary, 'תקציר הפרויקט')}
             </h3>
             {quote.summary_text && <p className="text-sm text-gray-700 leading-relaxed mb-4">{quote.summary_text}</p>}
             {(quote.services || []).length > 0 && (
@@ -315,7 +327,7 @@ export default function QuoteView() {
         {showPricing && (
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {sections.pricing?.title || `${numPricing} | מחירון ופירוט שירותים`}
+              {secTitle(sections.pricing?.title, numPricing, 'מחירון ופירוט שירותים')}
             </h3>
 
             {/* ── Multi-option pricing ── */}
@@ -447,7 +459,7 @@ export default function QuoteView() {
         {showThirdParty && (quote.third_party_costs || []).length > 0 && (
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {sections.third_party?.title || `${numThirdParty} | עלויות צד שלישי`}
+              {secTitle(sections.third_party?.title, numThirdParty, 'עלויות צד שלישי')}
             </h3>
             <table className="w-full text-sm">
               <thead>
@@ -473,7 +485,7 @@ export default function QuoteView() {
         {showTerms && (
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {sections.terms?.title || `${numTerms} | תנאים ולוח זמנים`}
+              {secTitle(sections.terms?.title, numTerms, 'תנאים ולוח זמנים')}
             </h3>
             {/* Timeline */}
             {(quote.timeline || []).length > 0 && (
