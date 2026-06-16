@@ -4,6 +4,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
+const db = require('./db');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -28,14 +30,19 @@ app.use('/api/ai', require('./routes/ai'));
 
 // Backup endpoint — exports full DB as JSON
 app.get('/api/backup', (req, res) => {
-  const db = require('./db');
-  const quotes = db.prepare('SELECT * FROM quotes').all();
-  const templates = db.prepare('SELECT * FROM templates').all();
-  const settings = db.prepare('SELECT * FROM settings').all();
-  const paymentSummaries = db.prepare('SELECT * FROM payment_summaries').all();
-  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  res.setHeader('Content-Disposition', `attachment; filename="orrddm-backup-${ts}.json"`);
-  res.json({ exported_at: new Date().toISOString(), quotes, templates, settings, payment_summaries: paymentSummaries });
+  try {
+    const quotes = db.prepare('SELECT * FROM quotes').all();
+    const templates = db.prepare('SELECT * FROM templates').all();
+    const settings = db.prepare('SELECT * FROM settings').all();
+    let paymentSummaries = [];
+    try { paymentSummaries = db.prepare('SELECT * FROM payment_summaries').all(); } catch {}
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    res.setHeader('Content-Disposition', `attachment; filename="orrddm-backup-${ts}.json"`);
+    res.json({ exported_at: new Date().toISOString(), quotes, templates, settings, payment_summaries: paymentSummaries });
+  } catch (e) {
+    console.error('Backup error:', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Serve built frontend in production
