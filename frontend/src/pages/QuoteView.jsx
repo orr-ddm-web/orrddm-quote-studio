@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { getPublicQuote, markViewed, signQuote, getSettings } from '../api';
 
 function calcPrices(phases, discountPct, vatPct) {
-  const subtotal = phases.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
+  const subtotal = phases.reduce((sum, p) => sum + (p.included ? 0 : (parseFloat(p.price) || 0)), 0);
   const discount = discountPct ? subtotal * (discountPct / 100) : 0;
   const afterDiscount = subtotal - discount;
   const vat = afterDiscount * (vatPct / 100);
@@ -165,6 +165,15 @@ export default function QuoteView() {
   const showThirdParty = sections.third_party?.visible !== false;
   const showTerms = sections.terms?.visible !== false;
 
+  // Dynamic sequential section numbering — skips hidden sections
+  let _sn = 0;
+  const sn = (visible) => visible ? String(++_sn).padStart(2, '0') : null;
+  const numSummary    = sn(showSummary);
+  const numPricing    = sn(showPricing);
+  const numThirdParty = sn(showThirdParty);
+  const numTerms      = sn(showTerms);
+  const customBase    = _sn; // custom sections continue from here
+
   return (
     <>
     <style>{`
@@ -286,7 +295,7 @@ export default function QuoteView() {
         {showSummary && (quote.summary_text || (quote.services || []).length > 0) && (
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {sections.summary?.title || '01 | תקציר הפרויקט'}
+              {sections.summary?.title || `${numSummary} | תקציר הפרויקט`}
             </h3>
             {quote.summary_text && <p className="text-sm text-gray-700 leading-relaxed mb-4">{quote.summary_text}</p>}
             {(quote.services || []).length > 0 && (
@@ -306,7 +315,7 @@ export default function QuoteView() {
         {showPricing && (
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {sections.pricing?.title || '02 | מחירון ופירוט שירותים'}
+              {sections.pricing?.title || `${numPricing} | מחירון ופירוט שירותים`}
             </h3>
 
             {/* ── Multi-option pricing ── */}
@@ -334,7 +343,12 @@ export default function QuoteView() {
                               {option.phases.map((p, pi) => (
                                 <tr key={pi} className="border-b border-gray-50">
                                   <td className="py-2 font-medium">{p.name}</td>
-                                  <td className="py-2 font-medium" style={{ color: brandColor }}>{fmt(p.price, currSym)}</td>
+                                  <td className="py-2 font-medium">
+                                    {p.included
+                                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">כלול</span>
+                                      : <span style={{ color: brandColor }}>{fmt(p.price, currSym)}</span>
+                                    }
+                                  </td>
                                   <td className="py-2 text-gray-500 text-xs">{p.description}</td>
                                 </tr>
                               ))}
@@ -385,7 +399,12 @@ export default function QuoteView() {
                       {quote.phases.map((p, i) => (
                         <tr key={i} className="border-b border-gray-50">
                           <td className="py-2.5 font-medium">{p.name}</td>
-                          <td className="py-2.5 font-medium" style={{ color: brandColor }}>{fmt(p.price, currSym)}</td>
+                          <td className="py-2.5 font-medium">
+                            {p.included
+                              ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">כלול</span>
+                              : <span style={{ color: brandColor }}>{fmt(p.price, currSym)}</span>
+                            }
+                          </td>
                           <td className="py-2.5 text-gray-500 text-xs">{p.description}</td>
                         </tr>
                       ))}
@@ -428,7 +447,7 @@ export default function QuoteView() {
         {showThirdParty && (quote.third_party_costs || []).length > 0 && (
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {sections.third_party?.title || '03 | עלויות צד שלישי'}
+              {sections.third_party?.title || `${numThirdParty} | עלויות צד שלישי`}
             </h3>
             <table className="w-full text-sm">
               <thead>
@@ -454,7 +473,7 @@ export default function QuoteView() {
         {showTerms && (
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {sections.terms?.title || '04 | תנאים ולוח זמנים'}
+              {sections.terms?.title || `${numTerms} | תנאים ולוח זמנים`}
             </h3>
             {/* Timeline */}
             {(quote.timeline || []).length > 0 && (
@@ -505,7 +524,7 @@ export default function QuoteView() {
         {(quote.custom_sections || []).filter(cs => cs.visible !== false).map((cs, i) => (
           <section key={i} className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-4 pb-2 border-b border-gray-200" style={{ color: brandColor }}>
-              {cs.title}
+              {cs.title || `${String(customBase + i + 1).padStart(2, '0')} | סעיף נוסף`}
             </h3>
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{cs.content}</p>
           </section>

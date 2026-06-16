@@ -169,7 +169,7 @@ function reducer(state, action) {
 // ── Price Calculation ─────────────────────────────────────────────────────────
 
 function calcPrices(phases, discountPct, vatPct) {
-  const subtotal = phases.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
+  const subtotal = phases.reduce((sum, p) => sum + (p.included ? 0 : (parseFloat(p.price) || 0)), 0);
   const discount = discountPct ? subtotal * (discountPct / 100) : 0;
   const afterDiscount = subtotal - discount;
   const vat = afterDiscount * (vatPct / 100);
@@ -317,8 +317,22 @@ function OptionCard({ option, oi, currencySymbol, vatPct, dispatch, canDelete })
                 <td className="py-1 pl-2">
                   <input className="input text-sm" value={p.name} onChange={e => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'name', v: e.target.value })} placeholder="שם השלב..." />
                 </td>
-                <td className="py-1 pl-2 w-28">
-                  <input className="input text-sm" type="number" value={p.price} onChange={e => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'price', v: e.target.value })} placeholder="0" />
+                <td className="py-1 pl-2 w-36">
+                  {p.included ? (
+                    <button
+                      onClick={() => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'included', v: false })}
+                      className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 font-medium hover:bg-green-100 transition-colors"
+                    >כלול ✓</button>
+                  ) : (
+                    <div className="flex gap-1">
+                      <input className="input text-sm flex-1" type="number" value={p.price} onChange={e => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'price', v: e.target.value })} placeholder="0" />
+                      <button
+                        onClick={() => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'included', v: true })}
+                        className="text-xs px-1.5 py-1 rounded border border-gray-200 bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors whitespace-nowrap"
+                        title="סמן כ'כלול'"
+                      >כלול</button>
+                    </div>
+                  )}
                 </td>
                 <td className="py-1 pl-2">
                   <input className="input text-sm" value={p.description} onChange={e => dispatch({ type: 'OPTION_PHASE_UPD', oi, pi, k: 'description', v: e.target.value })} placeholder="תיאור..." />
@@ -745,8 +759,22 @@ export default function QuoteBuilder() {
                         <td className="py-1.5 pl-2">
                           <input className="input text-sm" value={p.name} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'name', v: e.target.value })} placeholder="שם השלב..." />
                         </td>
-                        <td className="py-1.5 pl-2 w-32">
-                          <input className="input text-sm" type="number" value={p.price} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'price', v: e.target.value })} placeholder="0" />
+                        <td className="py-1.5 pl-2 w-36">
+                          {p.included ? (
+                            <button
+                              onClick={() => dispatch({ type: 'PHASE_UPD', i, k: 'included', v: false })}
+                              className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 font-medium hover:bg-green-100 transition-colors"
+                            >כלול ✓</button>
+                          ) : (
+                            <div className="flex gap-1">
+                              <input className="input text-sm flex-1" type="number" value={p.price} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'price', v: e.target.value })} placeholder="0" />
+                              <button
+                                onClick={() => dispatch({ type: 'PHASE_UPD', i, k: 'included', v: true })}
+                                className="text-xs px-1.5 py-1 rounded border border-gray-200 bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors whitespace-nowrap"
+                                title="סמן כ'כלול'"
+                              >כלול</button>
+                            </div>
+                          )}
                         </td>
                         <td className="py-1.5 pl-2">
                           <input className="input text-sm" value={p.description} onChange={e => dispatch({ type: 'PHASE_UPD', i, k: 'description', v: e.target.value })} placeholder="תיאור קצר..." />
