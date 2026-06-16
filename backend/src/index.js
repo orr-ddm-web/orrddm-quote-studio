@@ -26,6 +26,18 @@ app.use('/api/payment-summaries', require('./routes/paymentSummaries'));
 app.use('/api/pdf', require('./routes/pdf'));
 app.use('/api/ai', require('./routes/ai'));
 
+// Backup endpoint — exports full DB as JSON
+app.get('/api/backup', (req, res) => {
+  const db = require('./db');
+  const quotes = db.prepare('SELECT * FROM quotes').all();
+  const templates = db.prepare('SELECT * FROM templates').all();
+  const settings = db.prepare('SELECT * FROM settings').all();
+  const paymentSummaries = db.prepare('SELECT * FROM payment_summaries').all();
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  res.setHeader('Content-Disposition', `attachment; filename="orrddm-backup-${ts}.json"`);
+  res.json({ exported_at: new Date().toISOString(), quotes, templates, settings, payment_summaries: paymentSummaries });
+});
+
 // Serve built frontend in production
 const FRONTEND_DIST = path.join(__dirname, '..', '..', 'frontend', 'dist');
 if (fs.existsSync(FRONTEND_DIST)) {
